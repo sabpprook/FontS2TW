@@ -1,32 +1,30 @@
-# coding=utf-8
-
-import json
-import subprocess
 import sys
+from pathlib import Path
+from fontTools.ttLib import TTFont
 
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        exit
+if len(sys.argv) != 2:
+    exit()
 
-    fnt = sys.argv[1]
+file = sys.argv[1]
+path = Path(file)
+font = TTFont(file)
 
-    '''
-    obj = subprocess.check_output(('otfccdump.exe', '-n', '0', '--hex-cmap', fnt)).decode('utf-8', 'ignore')
-    obj = json.loads(obj.encode('utf-8'))
-    '''
+cmap = font['cmap']
+table = cmap.getBestCmap()
 
-    obj = json.loads(subprocess.check_output(('otfccdump.exe', '-n', '0', '--hex-cmap', '--no-bom', fnt)))
+with open('STWCharacters.txt', 'r', encoding='utf-8') as f:
+    for line in f.read().splitlines():
+        sc, tc = line.split('\t')
 
-    with open('STWCharacters.txt', encoding='utf-8') as f:
-        for line in f:
-            st = line.rstrip('\n').split('\t')
-            if st[0] == st[1]:
-                continue
-            s = f'U+{ord(st[0]):4X}'
-            t = f'U+{ord(st[1]):4X}'
-            try:
-                obj['cmap'][s] = obj['cmap'][t]
-            except:
-                print('no %s' % st[0])
+        s = ord(sc)
+        t = ord(tc)
 
-    subprocess.run(['otfccbuild.exe', '-O3', '-o', '%s_TC.ttf' % fnt[0:fnt.rfind('.')]], input=json.dumps(obj), encoding='utf-8')
+        if s in table and t in table:
+            t_s = table[s]
+            t_t = table[t]
+
+            table[s] = table[t]
+            
+            print(f'{sc} ({t_s})\t->\t{tc} ({t_t})')
+
+font.save(f'{path.stem}_TW{path.suffix}')
